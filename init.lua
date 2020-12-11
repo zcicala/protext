@@ -1,31 +1,10 @@
-function dump(o, prefix)
-	if prefix == nil then
-		prefix = " "
-	end
 
-	if o == nil then
-		return
-	end
+-- ctrl + option + command + /   Add current Chrome url to current context
+-- ctrl + option + command + '   Enter a new context and switch to it
+-- ctrl + option + command + ;   Use current Chrome tab title as a new context and add the current url to it
+-- ctrl + option + command + [   Switch to the previous context
 
-	print(prefix.."----", type(o), "------")
-	if type(o) == 'string' then
-		printf(prefix..o)
-	elseif type(o) == 'table' then
-      for key,value in pairs(o) do
-      	if(type(value) == 'table') then
-      		print(prefix..key.." -->")
-      		dump(value, "    " ..prefix)
-      	else
-    		print(prefix..key, value)
-    	end
-	  end
-   else
-    for key,value in pairs(getmetatable(o)) do
-    	print(prefix..key, value)
-	end
-   end
-
-end
+-- "Open" menubar   			 Opens all the urls for that context
 
 protextMenu = hs.menubar.new()
 protextMenu:setTitle("Open")
@@ -123,6 +102,34 @@ hs.hotkey.bind({"cmd", "alt", "ctrl"}, "/", function()
   end
 end)
 
+function dump(o, prefix)
+	if prefix == nil then
+		prefix = " "
+	end
+
+	if o == nil then
+		return
+	end
+
+	print(prefix.."----", type(o), "------")
+	if type(o) == 'string' then
+		printf(prefix..o)
+	elseif type(o) == 'table' then
+      for key,value in pairs(o) do
+      	if(type(value) == 'table') then
+      		print(prefix..key.." -->")
+      		dump(value, "    " ..prefix)
+      	else
+    		print(prefix..key, value)
+    	end
+	  end
+   else
+    for key,value in pairs(getmetatable(o)) do
+    	print(prefix..key, value)
+	end
+   end
+
+end
 
 --Init state
 
