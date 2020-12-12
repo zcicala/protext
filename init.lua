@@ -7,7 +7,7 @@
 -- "Open" menubar   			 Opens all the urls for that context
 
 protextMenu = hs.menubar.new()
-protextMenu:setTitle("Open")
+protextMenu:setTitle("Protext")
 
 
 
@@ -24,6 +24,63 @@ function Init(  )
 	switchContext(state.currentContext)
 	updateUI()
 end
+
+
+handlers = {
+	["Google Chrome"] = {
+		extractURL = function(window, callback ) 
+			window:elementSearch(function (msg, result, count)
+		  	 	url = result[1].AXValue
+		  	 	callback(url)
+		  	 end, function(elem) 
+		  	 	return elem:matchesCriteria('AXTextField')
+		  	 end)
+		end,
+		extractContext = function(window, callback )
+			print("Extract context")
+			context = nil
+			-- e = hs.uielement.focusedElement()
+			-- context = e:selectedText()
+			
+			if context == nil then
+				context = window.AXTitle
+			end
+			callback(context)
+
+			
+		end
+	},
+	-- ["Firefox"] = {
+	-- 	extractURL = function(window, callback ) 
+	-- 		window:elementSearch(function (msg, result, count)
+	-- 	  	 	url = result[1].AXValue
+	-- 	  	 	callback(url)
+	-- 	  	 end, function(elem) 
+	-- 	  	 	dump(elem:allAttributeValues())
+	-- 	  	 	return elem:matchesCriteria('AXTextField')
+	-- 	  	 end)
+	-- 	end,
+	-- 	extractContext = function(window, callback )
+	-- 		title = window.AXTitle
+	-- 		callback(title)
+	-- 	end
+	-- },
+	["Code"] = {		
+		extractURL = function(window, callback )
+			path = string.gsub(window.AXDocument, "file://","vscode://file")
+			callback(path)
+		end,
+		extractContext = function(window, callback )
+			context = window.selectedText()
+			if context == nil then
+				title = window.AXTitle
+			end
+			callback(context)
+		end
+	}
+}
+
+
 
 function readState(file)
 	readState = hs.json.read(file)
@@ -46,14 +103,17 @@ function addToCurrentContext(url)
  	writeState(stateFile)
  	
  	hs.notify.show("Add to context",currentContext, url)
-	dump(state)
+	--dump(state)
 end
 
 function updateUI()
 	--Update menubar
 	menudata = {}
 	for key,value in pairs(state.contextData) do
-		table.insert(menudata, {title = key, fn = function() openUrlsForContext(key) end})	
+		table.insert(menudata, {title = key, menu = {
+														{title ="Open", fn = function() openUrlsForContext(key) end}, 
+														{title ="Switch", fn = function() switchContext(key) end}
+		}})	
 	end	
 	protextMenu:setMenu(menudata)
 end
@@ -72,15 +132,6 @@ function switchContext(newContext)
 	hs.notify.show("Switch context", "switch to", newContext)
 end
 
-function extractUrlFromWindow(w)
-	 w:elementSearch(function (msg, result, count)
-  	 	url = result[1].AXValue
-  	 	addToCurrentContext(url)
-  	 end, function(elem) 
-  	 	return elem:matchesCriteria('AXTextField')
-  	 end)
-end
-
 
 function openUrlsForContext(contextKey)
 	urls = state.contextData[contextKey] 
@@ -91,38 +142,60 @@ function openUrlsForContext(contextKey)
 end
   
 hs.hotkey.bind({"cmd", "alt", "ctrl"}, ";", function()
-	dump(contextData)	
+	--dump(contextData)	
 	button, newContext = hs.dialog.textPrompt("Switch Context", "Please enter something:")
 	switchContext(newContext)
 	 
 end)
 
 hs.hotkey.bind({"cmd", "alt", "ctrl"}, "[", function()
-	switchContext(previousContext)	 
+	switchContext(state.previousContext)	 
 end)
 
 -- Extract title to new context
 hs.hotkey.bind({"cmd", "alt", "ctrl"}, "'", function()
   currentApp = hs.application.frontmostApplication() 
-  currentAppName = currentApp:name()
-  if currentAppName == "Google Chrome" then
-  	 w = hs.axuielement.windowElement(currentApp:visibleWindows()[1])
-  	 title = w.AXTitle
-  	 print(title)
-  	 switchContext(title)
-  	 extractUrlFromWindow(w)
+  currentAppName = currentApp:name() --string.gsub(currentApp:name(), " ", "")
+  w = hs.axuielement.windowElement(currentApp:visibleWindows()[1])
+
+  handler = handlers[currentAppName]
+
+  if handler ~= nil then
+  		handler.extractContext(w, function(title)
+			print(title)
+			switchContext(title)
+  		end)
+  		handler.extractURL(w, function(url )
+  			addToCurrentContext(url)
+  		end)  		  		
   end
+
 end)
 
 -- Add URL to Context
 hs.hotkey.bind({"cmd", "alt", "ctrl"}, "/", function()
   currentApp = hs.application.frontmostApplication() 
-  currentAppName = currentApp:name()
-  if currentAppName == "Google Chrome" then
-  		w = hs.axuielement.windowElement(currentApp:visibleWindows()[1])
-  	 	extractUrlFromWindow(w)
+  currentAppName = currentApp:name() 
+  w = hs.axuielement.windowElement(currentApp:visibleWindows()[1])
+
+  handler = handlers[currentAppName]
+
+  if handler ~= nil then
+  		handler.extractURL(w, function(url )
+  			addToCurrentContext(url)
+  		end)  		
   else
-  	dump(hs.axuielement.windowElement(currentApp:visibleWindows()[1]):allAttributeValues())
+  	print(currentAppName)
+  	dump(currentApp)
+  	--dump(hs.axuielement.windowElement(currentApp:visibleWindows()[1]):allAttributeValues())
+  end
+end)
+
+--Add from clipboard
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, ".", function()
+  clipboard = hs.pasteboard.readString()
+  if string.find(clipboard, "://") ~= nil then
+  	addToCurrentContext(clipboard)
   end
 end)
 
