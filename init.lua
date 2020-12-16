@@ -167,8 +167,8 @@ function obj:updateUI()
 	--for key, value in pairs(state.contextData) do
 	for index, key in pairs(self.state.recentContexts) do
 		table.insert(menudata, {title = key, menu = {
-				{title ="Open", fn = function() openUrlsForContext(key) end}, 
-				{title ="Switch", fn = function() switchContext(key) end}
+				{title ="Open", fn = function() self:openUrlsForContext(key) end}, 
+				{title ="Switch", fn = function() self:switchContext(key) end}
 		}})	
 	end	
 	self.protextMenu:setMenu(menudata)
@@ -218,6 +218,7 @@ end
 
 
 -- Extract title to new context
+-- If there is already a context associate with the current URI it will switch to that
 function obj:handleExtractContext()
 	local currentApp = hs.application.frontmostApplication() 
 	local currentAppName = currentApp:name() --string.gsub(currentApp:name(), " ", "")
@@ -226,13 +227,24 @@ function obj:handleExtractContext()
 	local handler = self.handlers[currentAppName]
   
 	if handler ~= nil then
-			handler.extractContext(w, function(title)
-			  print(title)
-			  self:switchContext(title)
-			end)
-			handler.extractURL(w, function(url )
-				self:addToCurrentContext(url)
-			end)  		  		
+		handler.extractURL(w, function(uri )
+			local lookup = self.state.urlToContext[uri]
+			if lookup ~= nil then
+				-- There is already a context associated with the current URI
+				self:switchContext(lookup)
+			else
+				--We need to create a new context
+				handler.extractContext(w, function(title)
+					print(title)
+					self:switchContext(title)
+					self:addToCurrentContext(uri)
+				  end)
+			end
+
+		end)  		
+			
+			
+			  		
 	end
   
   end
@@ -281,8 +293,9 @@ function obj:bindHotkeys(keys)
 			self:switchContext(newContext)
         end
 	)
+	
 
-	--Previous Contecxt
+	--Previous Context
 	--Default: {"cmd", "alt", "ctrl"}, "["
 	hs.hotkey.bindSpec(
         keys['previous_context'],
@@ -292,7 +305,7 @@ function obj:bindHotkeys(keys)
         end
 	)
 
-	--Next Contecxt
+	--Next Context
 	--Default: {"cmd", "alt", "ctrl"}, "="
 	hs.hotkey.bindSpec(
         keys['next_context'],
