@@ -18,7 +18,7 @@ obj.state = {
 	currentContextPosition = 1,
 	recentSize = 1,
 	currentContext = "default",
-	contextData = {},
+	contextData = {default = {}},
 	urlToContext = {},
 	recentContexts = {"default"},
 }
@@ -28,7 +28,7 @@ end
 
 function obj:start()
 	self:readState(self.stateFile)
-	self:switchContext(state.currentContext)
+	self:switchContext(self.state.currentContext)
 	self.protextMenu = hs.menubar.new()
 	self.protextMenu:setTitle("Protext")
 	self:updateUI()
@@ -80,7 +80,7 @@ obj.handlers = {
 			callback(path)
 		end,
 		extractContext = function(window, callback )
-			context = window.selectedText()
+			context = window:selectedText()
 			if context == nil then
 				title = window.AXTitle
 			end
@@ -105,11 +105,11 @@ function obj:addToCurrentContext(url)
 	local currentContext = self.state.currentContext
  	
  	table.insert(self.state.contextData[currentContext], url)
- 	state.urlToContext[url] = currentContext
+ 	self.state.urlToContext[url] = currentContext
  	
 	hs.notify.show("Add to context",currentContext, url)
 	self:addRecentContext(currentContext) 
- 	self:writeState(stateFile)
+ 	self:writeState(self.stateFile)
 	--dump(state)
 end
 
@@ -177,12 +177,12 @@ end
 function obj:switchContext(newContext)
 	if self.state.contextData[newContext] == nil then
 		self.state.contextData[newContext] = {}
-		updateUI()
+		self:updateUI()
 	end
 
 	--Update current context to new context, but don't add it to recent until an entry is actually inserted
 	self.state.currentContext = newContext
-	self:writeState(stateFile)
+	self:writeState(self.stateFile)
 
 	hs.notify.show("Switch context", "switch to", newContext)
 end
@@ -288,7 +288,7 @@ function obj:bindHotkeys(keys)
         keys['previous_context'],
         'Shift to previous context',
         function()
-			shiftRecentContextPosition(-1) 
+			self:shiftRecentContextPosition(-1) 
         end
 	)
 
@@ -298,7 +298,7 @@ function obj:bindHotkeys(keys)
         keys['next_context'],
         'Shift to next context',
         function()
-			shiftRecentContextPosition(1) 
+			self:shiftRecentContextPosition(1) 
         end
 	)
 end
@@ -332,3 +332,5 @@ function obj:dump(o, prefix)
    end
 
 end
+
+return obj
