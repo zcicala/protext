@@ -27,10 +27,9 @@ function obj:init(  )
 end
 
 function obj:start()
+	self.protextMenu = hs.menubar.new()
 	self:readState(self.stateFile)
 	self:switchContext(self.state.currentContext)
-	self.protextMenu = hs.menubar.new()
-	self.protextMenu:setTitle("Protext")
 	self:updateUI()
 end
 
@@ -166,9 +165,15 @@ function obj:updateUI()
 	local menudata = {}
 	--for key, value in pairs(state.contextData) do
 	for index, key in pairs(self.state.recentContexts) do
+		local uris = {}
+		for i,uri in pairs(self.state.contextData[key]) do
+			table.insert(uris, {title = uri, fn = function() hs.urlevent.openURL(uri) end})	
+		end
+
 		table.insert(menudata, {title = key, menu = {
-				{title ="Open", fn = function() self:openUrlsForContext(key) end}, 
-				{title ="Switch", fn = function() self:switchContext(key) end}
+			{title ="Switch", fn = function() self:switchContext(key) end},
+			{title ="Open All", fn = function() self:openUrlsForContext(key) end}, 
+			{title = "Open", menu = uris},
 		}})	
 	end	
 	self.protextMenu:setMenu(menudata)
@@ -184,7 +189,7 @@ function obj:switchContext(newContext)
 	self.state.currentContext = newContext
 	self:writeState(self.stateFile)
 
-	hs.notify.show("Switch context", "switch to", newContext)
+	self.protextMenu:setTitle(string.sub(newContext,1,16));
 end
 
 
@@ -283,8 +288,34 @@ function obj:bindHotkeys(keys)
         end
 	)
 
-	--Type in new context
+	--Extract context from window
+	--Default: {"cmd", "alt", "ctrl"}, "'"
+	hs.hotkey.bindSpec(
+        keys['context_from_window'],
+        'Extract context from the current window and switch to new context',
+        function()
+            self:handleExtractContext()
+        end
+	)
+
+	--Extract context from clipboard
 	--Default: {"cmd", "alt", "ctrl"}, ";"
+	hs.hotkey.bindSpec(
+        keys['context_from_clipboard'],
+        'Extract context from URI in the clipboard',
+        function()
+            local clipboard = hs.pasteboard.readString()
+			if string.find(clipboard, "://") ~= nil then
+				local lookup = self.state.urlToContext[clipboard]
+				if lookup ~= nil then
+					-- There is already a context associated with the current URI
+					self:switchContext(lookup)
+				end
+			end
+        end
+	)
+	--Type in new context
+	--Default: {"cmd", "alt", "ctrl"}, "\"
 	hs.hotkey.bindSpec(
         keys['context_from_text_input'],
         'Type in new context',
