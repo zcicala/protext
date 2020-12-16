@@ -1,11 +1,4 @@
 
--- ctrl + option + command + /   Add current Chrome url to current context
--- ctrl + option + command + ;   Enter a new context and switch to it
--- ctrl + option + command + ''   Use current Chrome tab title as a new context and add the current url to it
--- ctrl + option + command + [   Switch to the previous context
-
--- "Open" menubar   			 Opens all the urls for that context
-
 local obj = {}
 obj.__index = obj
 
@@ -15,7 +8,7 @@ obj.version = '0.1'
 obj.author = 'Zac Cicala <zcicala@gmail.com>'
 obj.license = 'MIT - https://opensource.org/licenses/MIT'
 
-ob.protextMenu = nil
+obj.protextMenu = nil
 
 
 obj.maxRecentEntries=10
@@ -31,7 +24,10 @@ obj.state = {
 }
 
 function obj:init(  )
-	self:readState(stateFile)
+end
+
+function obj:start()
+	self:readState(self.stateFile)
 	self:switchContext(state.currentContext)
 	self.protextMenu = hs.menubar.new()
 	self.protextMenu:setTitle("Protext")
@@ -39,7 +35,7 @@ function obj:init(  )
 end
 
 
-self.handlers = {
+obj.handlers = {
 	["Google Chrome"] = {
 		extractURL = function(window, callback ) 
 			window:elementSearch(function (msg, result, count)
@@ -336,6 +332,3 @@ function obj:dump(o, prefix)
    end
 
 end
-
---Init state
-Init()
