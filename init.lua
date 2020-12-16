@@ -6,14 +6,22 @@
 
 -- "Open" menubar   			 Opens all the urls for that context
 
-protextMenu = hs.menubar.new()
-protextMenu:setTitle("Protext")
+local obj = {}
+obj.__index = obj
+
+-- Metadata
+obj.name = 'Protext'
+obj.version = '0.1'
+obj.author = 'Zac Cicala <zcicala@gmail.com>'
+obj.license = 'MIT - https://opensource.org/licenses/MIT'
+
+ob.protextMenu = nil
 
 
-MAX_RECENT=10
+obj.maxRecentEntries=10
 
-stateFile = "~/.hammerspoon/protextState.json"
-state = {
+obj.stateFile = "~/.hammerspoon/protextState.json"
+obj.state = {
 	currentContextPosition = 1,
 	recentSize = 1,
 	currentContext = "default",
@@ -22,14 +30,16 @@ state = {
 	recentContexts = {"default"},
 }
 
-function Init(  )
-	readState(stateFile)
-	switchContext(state.currentContext)
-	updateUI()
+function obj:init(  )
+	self:readState(stateFile)
+	self:switchContext(state.currentContext)
+	self.protextMenu = hs.menubar.new()
+	self.protextMenu:setTitle("Protext")
+	self:updateUI()
 end
 
 
-handlers = {
+self.handlers = {
 	["Google Chrome"] = {
 		extractURL = function(window, callback ) 
 			window:elementSearch(function (msg, result, count)
@@ -83,55 +93,53 @@ handlers = {
 	}
 }
 
-
-
-function readState(file)
-	readState = hs.json.read(file)
+function obj:readState(file)
+	local readState = hs.json.read(file)
 	if readState ~= nil then
-		state = readState
+		self.state = readState
 	end
 
 end
 
-function writeState(file) 
-	hs.json.write(state, file, true, true)
+function obj:writeState(file) 
+	hs.json.write(self.state, file, true, true)
 end
 
-function addToCurrentContext(url)
-	currentContext = state.currentContext
+function obj:addToCurrentContext(url)
+	local currentContext = self.state.currentContext
  	
- 	table.insert(state.contextData[currentContext], url)
+ 	table.insert(self.state.contextData[currentContext], url)
  	state.urlToContext[url] = currentContext
  	
 	hs.notify.show("Add to context",currentContext, url)
-	addRecentContext(currentContext) 
- 	writeState(stateFile)
+	self:addRecentContext(currentContext) 
+ 	self:writeState(stateFile)
 	--dump(state)
 end
 
-function shiftRecentContextPosition(diff)
-	state.currentContextPosition = state.currentContextPosition + diff
-	if state.currentContextPosition < 1 then
-		state.currentContextPosition = 1
+function obj:shiftRecentContextPosition(diff)
+	self.state.currentContextPosition = self.state.currentContextPosition + diff
+	if self.state.currentContextPosition < 1 then
+		self.state.currentContextPosition = 1
 	end
 
-	if state.currentContextPosition > state.recentSize then
-		state.currentContextPosition = state.recentSize
+	if self.state.currentContextPosition > self.state.recentSize then
+		self.state.currentContextPosition = self.state.recentSize
 	end
 
-	switchContext(state.recentContexts[state.currentContextPosition])
+	self:switchContext(self.state.recentContexts[self.state.currentContextPosition])
 end
 
-function addRecentContext(context)
+function obj:addRecentContext(context)
 	-- Is this context already the most recent item?
-	if state.recentContexts[state.recentSize]  == context then
+	if self.state.recentContexts[self.state.recentSize]  == context then
 		return;
 	end
 
 	-- This is basically an LRU Cache, which I don't feel like implementing
 	-- Remove this context if its already in the list
 	indexToRemove = -1
-	for index, val in pairs(state.recentContexts) do
+	for index, val in pairs(self.state.recentContexts) do
 		if val == context then
 			print(index, val)
 			indexToRemove = index
@@ -140,121 +148,167 @@ function addRecentContext(context)
 	end
 
 	if indexToRemove > -1 then
-		tables.remove(state.recentContexts, indexToRemove)
-		state.recentSize = state.recentSize -1
+		tables.remove(self.state.recentContexts, indexToRemove)
+		self.state.recentSize = self.state.recentSize -1
 	end
 	
-	table.insert(state.recentContexts, context)
-	state.recentSize = state.recentSize + 1
+	table.insert(self.state.recentContexts, context)
+	self.state.recentSize = self.state.recentSize + 1
 
 	-- if the table is too big then lets remove the first element
-	if state.recentSize > MAX_RECENT then
-		table.remove(state.recentContexts, 1)
+	if self.state.recentSize > self.maxRecentEntries then
+		table.remove(self.state.recentContexts, 1)
 	end
 
 	--Position of currentContext has shifted
-	currentContextPosition = state.recentSize
-	updateUI()
+	self.state.currentContextPosition = self.state.recentSize
+	self:updateUI()
 end
 
-function updateUI()
+function obj:updateUI()
 	--Update menubar
-	menudata = {}
+	local menudata = {}
 	--for key, value in pairs(state.contextData) do
-	for index, key in pairs(state.recentContexts) do
+	for index, key in pairs(self.state.recentContexts) do
 		table.insert(menudata, {title = key, menu = {
 				{title ="Open", fn = function() openUrlsForContext(key) end}, 
 				{title ="Switch", fn = function() switchContext(key) end}
 		}})	
 	end	
-	protextMenu:setMenu(menudata)
+	self.protextMenu:setMenu(menudata)
 end
 
-function switchContext(newContext)
-	if state.contextData[newContext] == nil then
-		state.contextData[newContext] = {}
+function obj:switchContext(newContext)
+	if self.state.contextData[newContext] == nil then
+		self.state.contextData[newContext] = {}
 		updateUI()
 	end
 
-	state.previousContext = state.currentContext
-	state.currentContext = newContext
-	writeState(stateFile)
+	--Update current context to new context, but don't add it to recent until an entry is actually inserted
+	self.state.currentContext = newContext
+	self:writeState(stateFile)
 
 	hs.notify.show("Switch context", "switch to", newContext)
 end
 
 
-function openUrlsForContext(contextKey)
-	urls = state.contextData[contextKey] 
+function obj:openUrlsForContext(contextKey)
+	local urls = self.state.contextData[contextKey] 
 	for index, url in pairs(urls) do
 		print(url)
 		hs.urlevent.openURL(url)
 	end
 end
+
+
+
+function obj:handleExtractURI()
+	local currentApp = hs.application.frontmostApplication() 
+	local currentAppName = currentApp:name() 
+	local w = hs.axuielement.windowElement(currentApp:visibleWindows()[1])
   
-hs.hotkey.bind({"cmd", "alt", "ctrl"}, ";", function()
-	--dump(contextData)	
-	button, newContext = hs.dialog.textPrompt("Switch Context", "Please enter something:")
-	switchContext(newContext)
-	 
-end)
+	local handler = self.handlers[currentAppName]
+  
+	if handler ~= nil then
+			handler.extractURL(w, function(url )
+				self:addToCurrentContext(url)
+			end)  		
+	else
+		print(currentAppName)
+		self:dump(currentApp)
+		self:dump(hs.axuielement.windowElement(currentApp:visibleWindows()[1]):allAttributeValues())
+	end
+end
 
-hs.hotkey.bind({"cmd", "alt", "ctrl"}, "[", function()
-	shiftRecentContextPosition(-1) 
-end)
-
-hs.hotkey.bind({"cmd", "alt", "ctrl"}, "]", function()
-	shiftRecentContextPosition(1) 
-end)
 
 -- Extract title to new context
-hs.hotkey.bind({"cmd", "alt", "ctrl"}, "'", function()
-  currentApp = hs.application.frontmostApplication() 
-  currentAppName = currentApp:name() --string.gsub(currentApp:name(), " ", "")
-  w = hs.axuielement.windowElement(currentApp:visibleWindows()[1])
-
-  handler = handlers[currentAppName]
-
-  if handler ~= nil then
-  		handler.extractContext(w, function(title)
-			print(title)
-			switchContext(title)
-  		end)
-  		handler.extractURL(w, function(url )
-  			addToCurrentContext(url)
-  		end)  		  		
+function obj:handleExtractContext()
+	local currentApp = hs.application.frontmostApplication() 
+	local currentAppName = currentApp:name() --string.gsub(currentApp:name(), " ", "")
+	local w = hs.axuielement.windowElement(currentApp:visibleWindows()[1])
+  
+	local handler = self.handlers[currentAppName]
+  
+	if handler ~= nil then
+			handler.extractContext(w, function(title)
+			  print(title)
+			  self:switchContext(title)
+			end)
+			handler.extractURL(w, function(url )
+				self:addToCurrentContext(url)
+			end)  		  		
+	end
+  
   end
 
-end)
+function obj:bindHotkeys(keys)
+	--Extract URI from current window
+	--Default: {"cmd", "alt", "ctrl"}, "/"
+    hs.hotkey.bindSpec(
+        keys['add_from_window'],
+        'Extract App URI from current window and add to current context',
+        function()
+            self:handleExtractURI()
+        end
+	)
+	
+	--URI from Clipboard
+	--Default: {"cmd", "alt", "ctrl"}, "."
+	hs.hotkey.bindSpec(
+        keys['add_from_clipboard'],
+        'Add clipboard contents to current context',
+        function()
+            local clipboard = hs.pasteboard.readString()
+			if string.find(clipboard, "://") ~= nil then
+				self:addToCurrentContext(clipboard)
+			end
+        end
+	)
+	
+	--Extract context from window
+	--Default: {"cmd", "alt", "ctrl"}, "'"
+	hs.hotkey.bindSpec(
+        keys['context_from_window'],
+        'Extract context from the current window and switch to new context',
+        function()
+            self:handleExtractContext()
+        end
+	)
 
--- Add URL to Context
-hs.hotkey.bind({"cmd", "alt", "ctrl"}, "/", function()
-  currentApp = hs.application.frontmostApplication() 
-  currentAppName = currentApp:name() 
-  w = hs.axuielement.windowElement(currentApp:visibleWindows()[1])
+	--Type in new context
+	--Default: {"cmd", "alt", "ctrl"}, ";"
+	hs.hotkey.bindSpec(
+        keys['context_from_text_input'],
+        'Type in new context',
+        function()
+            local button, newContext = hs.dialog.textPrompt("Switch Context", "Type in new context")
+			self:switchContext(newContext)
+        end
+	)
 
-  handler = handlers[currentAppName]
+	--Previous Contecxt
+	--Default: {"cmd", "alt", "ctrl"}, "["
+	hs.hotkey.bindSpec(
+        keys['previous_context'],
+        'Shift to previous context',
+        function()
+			shiftRecentContextPosition(-1) 
+        end
+	)
 
-  if handler ~= nil then
-  		handler.extractURL(w, function(url )
-  			addToCurrentContext(url)
-  		end)  		
-  else
-  	print(currentAppName)
-  	dump(currentApp)
-  	dump(hs.axuielement.windowElement(currentApp:visibleWindows()[1]):allAttributeValues())
-  end
-end)
+	--Next Contecxt
+	--Default: {"cmd", "alt", "ctrl"}, "="
+	hs.hotkey.bindSpec(
+        keys['next_context'],
+        'Shift to next context',
+        function()
+			shiftRecentContextPosition(1) 
+        end
+	)
+end
 
---Add from clipboard
-hs.hotkey.bind({"cmd", "alt", "ctrl"}, ".", function()
-  clipboard = hs.pasteboard.readString()
-  if string.find(clipboard, "://") ~= nil then
-  	addToCurrentContext(clipboard)
-  end
-end)
 
-function dump(o, prefix)
+function obj:dump(o, prefix)
 	if prefix == nil then
 		prefix = " "
 	end
@@ -270,7 +324,7 @@ function dump(o, prefix)
       for key,value in pairs(o) do
       	if(type(value) == 'table') then
       		print(prefix..key.." -->")
-      		dump(value, "    " ..prefix)
+      		self:dump(value, "    " ..prefix)
       	else
     		print(prefix..key, value)
     	end
