@@ -109,7 +109,7 @@ function obj:addToCurrentContext(url)
 	hs.notify.show("Add to context",currentContext, url)
 	self:addRecentContext(currentContext) 
  	self:writeState(self.stateFile)
-	--dump(state)
+	self.updateUI()
 end
 
 function obj:shiftRecentContextPosition(diff)
@@ -143,7 +143,7 @@ function obj:addRecentContext(context)
 	end
 
 	if indexToRemove > -1 then
-		tables.remove(self.state.recentContexts, indexToRemove)
+		table.remove(self.state.recentContexts, indexToRemove)
 		self.state.recentSize = self.state.recentSize -1
 	end
 	
@@ -163,18 +163,19 @@ end
 function obj:updateUI()
 	--Update menubar
 	local menudata = {}
-	--for key, value in pairs(state.contextData) do
-	for index, key in pairs(self.state.recentContexts) do
-		local uris = {}
+	
+	--Reverse iterate
+	for i = #self.state.recentContexts, 1, -1 do
+		local key = self.state.recentContexts[i]
+		local uris = {
+			-- {title ="Switch", fn = function() self:switchContext(key) end},
+			{title ="Open All", fn = function() self:openUrlsForContext(key) end}, 
+		}
 		for i,uri in pairs(self.state.contextData[key]) do
 			table.insert(uris, {title = uri, fn = function() hs.urlevent.openURL(uri) end})	
 		end
 
-		table.insert(menudata, {title = key, menu = {
-			{title ="Switch", fn = function() self:switchContext(key) end},
-			{title ="Open All", fn = function() self:openUrlsForContext(key) end}, 
-			{title = "Open", menu = uris},
-		}})	
+		table.insert(menudata, {title = string.sub(key,1,32), menu = uris})	
 	end	
 	self.protextMenu:setMenu(menudata)
 end
@@ -216,8 +217,21 @@ function obj:handleExtractURI()
 			end)  		
 	else
 		print(currentAppName)
+		-- w:elementSearch(function (msg, result, count)
+		-- 	print(result)
+		-- end, function(elem)
+		-- 	print(elem) 
+		-- 	self:dump(elem:allAttributeValues())
+		-- 	return false
+		-- end)
 		self:dump(currentApp)
 		self:dump(hs.axuielement.windowElement(currentApp:visibleWindows()[1]):allAttributeValues())
+		hs.axuielement.windowElement(currentApp:visibleWindows()[1]):allDescendantElements(function(elem)
+			self:dump(elem)
+			if elem.allAttributeValues ~= nil then
+				self:dump(elem:allAttributeValues())
+			end
+		end)
 	end
 end
 
@@ -349,6 +363,12 @@ end
 
 
 function obj:dump(o, prefix)
+	-- print(hs.inspect.inspect(o,{depth = 10, metatables = true, process = function(item, path) 
+		
+
+	-- 	return true;
+	-- end}))
+
 	if prefix == nil then
 		prefix = " "
 	end
@@ -359,17 +379,25 @@ function obj:dump(o, prefix)
 
 	print(prefix.."----", type(o), "------")
 	if type(o) == 'string' then
-		printf(prefix..o)
+		print(prefix..o)
 	elseif type(o) == 'table' then
-      for key,value in pairs(o) do
-      	if(type(value) == 'table') then
+	  for key,value in pairs(o) do
+		local typeVal = type(value)
+		if(typeVal == 'table') then
       		print(prefix..key.." -->")
-      		self:dump(value, "    " ..prefix)
+			self:dump(value, "    " ..prefix)
+		elseif typeVal == 'userdata' then
+		  	print(prefix..key.." -->")
+		  	self:dump(getmetatable(value), "    " ..prefix)
+			
       	else
-    		print(prefix..key, value)
+    		print(prefix..key, "["..typeVal.."]", value)
     	end
 	  end
+
+	  
    else
+	print("---getmetatable-----")
     for key,value in pairs(getmetatable(o)) do
     	print(prefix..key, value)
 	end
