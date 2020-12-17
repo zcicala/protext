@@ -18,26 +18,26 @@ Protext attempts to solve this by introducing the concept of *contexts* which ar
 ## How to use Protext
 ### Creating Contexts
 Contexts can be created in two different ways. *Note* this section references hotkeynammes demo'd at the bottomm of this doc
-#. `context_from_window` This hotkey will examine the currentt window you are using and attempt to extract a context string from it. If the app is support it will create a new context AND add the current URI to the new context. If the current app URI already exists, Protext will switch to that context instead of creating a new context
-#. `context_from_text_input` This hotkey will bring up a new dialog box that allows you to enter a new context. It will not add anything to this new conetxt.
+1. `context_from_window` This hotkey will examine the currentt window you are using and attempt to extract a context string from it. If the app is support it will create a new context AND add the current URI to the new context. If the current app URI already exists, Protext will switch to that context instead of creating a new context
+1. `context_from_text_input` This hotkey will bring up a new dialog box that allows you to enter a new context. It will not add anything to this new conetxt.
 
 ### Navigating Contexts
 You can navigate between contexts in a few differentt ways. The name of the context will be shown in the menubar. 
 
-#. `previous_context` and `next_context` These hotkeys will allow you to navigate quickly around the ten most recently used contexts.
-#. `context_from_window` This hotkey will, if possible, lookup the current app URI. If this URI is associated with an existing context, then Protext will switch to that context, otherwise it will createt a new context.
-#. `context_from_clipboard` This hotkey will use a URI from the clipboard. It will attempt to lookup the context associated with this URI. If a context exists, Protext will switch to that URI, otherwise it will do nothing.
+1. `previous_context` and `next_context` These hotkeys will allow you to navigate quickly around the ten most recently used contexts.
+1. `context_from_window` This hotkey will, if possible, lookup the current app URI. If this URI is associated with an existing context, then Protext will switch to that context, otherwise it will createt a new context.
+1. `context_from_clipboard` This hotkey will use a URI from the clipboard. It will attempt to lookup the context associated with this URI. If a context exists, Protext will switch to that URI, otherwise it will do nothing.
 
 ### Adding to Contexts
-#. `add_from_window` This hotkey will, if possible, lookup the current app URI. If it is possible to extract the URI it will be added to the current contextt
-#. `add_from_clipboard` This hotkey will examine the clipboard, if it is a URI, it will be added to the current context.
+1. `add_from_window` This hotkey will, if possible, lookup the current app URI. If it is possible to extract the URI it will be added to the current contextt
+1. `add_from_clipboard` This hotkey will examine the clipboard, if it is a URI, it will be added to the current context.
 
 ### Menubar 
 Protext adds an entry to the Mac menubar. The text of the menu will be the current context.
 Each recent context (up to 10) will have an entry in this menu. 
-#. `Open All` will open every URI for this context
-#. `Delete` will remove the context from the recent context list and fromm the menu.
-#. All other entries are invidual URIs that will open when clicked
+1. `Open All` will open every URI for this context
+1. `Delete` will remove the context from the recent context list and fromm the menu.
+1. All other entries are invidual URIs that will open when clicked
 
 ## How to Install
 
@@ -45,8 +45,8 @@ Each recent context (up to 10) will have an entry in this menu.
 https://www.hammerspoon.org/
 
 ### Import this Spoon
-#. Download contents of this repo into `~/.hammerspoon/Spoons/protext`
-#. Import and configure this spoon in `~/.hammerspoon/init.lua`
+1. Download contents of this repo into `~/.hammerspoon/Spoons/protext`
+1. Import and configure this spoon in `~/.hammerspoon/init.lua`
 
 My config looks like
 ```
