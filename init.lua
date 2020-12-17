@@ -46,7 +46,7 @@ obj.handlers = {
 		end,
 		extractContext = function(window, callback )
 			print("Extract context")
-			context = nil
+			local context = nil
 			-- e = hs.uielement.focusedElement()
 			-- context = e:selectedText()
 			
@@ -109,7 +109,7 @@ function obj:addToCurrentContext(url)
 	hs.notify.show("Add to context",currentContext, url)
 	self:addRecentContext(currentContext) 
  	self:writeState(self.stateFile)
-	self.updateUI()
+	self:updateUI()
 end
 
 function obj:shiftRecentContextPosition(diff)
@@ -133,10 +133,9 @@ function obj:addRecentContext(context)
 
 	-- This is basically an LRU Cache, which I don't feel like implementing
 	-- Remove this context if its already in the list
-	indexToRemove = -1
+	local indexToRemove = -1
 	for index, val in pairs(self.state.recentContexts) do
 		if val == context then
-			print(index, val)
 			indexToRemove = index
 			break
 		end
@@ -160,21 +159,43 @@ function obj:addRecentContext(context)
 	self:updateUI()
 end
 
+function obj:removeFromRecent(indexToRemove)
+
+	print("indexToRemove", indexToRemove)
+	if indexToRemove > -1 then
+		table.remove(self.state.recentContexts, indexToRemove)
+		self.state.recentSize = self.state.recentSize -1
+		
+		if self.state.currentContextPosition > indexToRemove then
+			self.state.currentContextPosition = self.state.currentContextPosition - 1
+		end
+	end
+
+	-- if we're trying to remove the currennt context then mmove to the most recent context
+	if self.state.currentContext == contextToRemove then
+		self.switchContext(self.state.recentContexts[1])
+	end
+
+	
+	self:updateUI()
+end
+
 function obj:updateUI()
 	--Update menubar
-	local menudata = {}
-	
+	local menudata = {}	
 	--Reverse iterate
 	for i = #self.state.recentContexts, 1, -1 do
 		local key = self.state.recentContexts[i]
 		local uris = {
 			-- {title ="Switch", fn = function() self:switchContext(key) end},
-			{title ="Open All", fn = function() self:openUrlsForContext(key) end}, 
+			{title = "Open All", fn = function() self:openUrlsForContext(key) end}, 
+			{title = "Remove", fn = function() self:removeFromRecent(i) end},
 		}
 		for i,uri in pairs(self.state.contextData[key]) do
 			table.insert(uris, {title = uri, fn = function() hs.urlevent.openURL(uri) end})	
 		end
 
+	
 		table.insert(menudata, {title = string.sub(key,1,32), menu = uris})	
 	end	
 	self.protextMenu:setMenu(menudata)
@@ -259,13 +280,8 @@ function obj:handleExtractContext()
 					self:addToCurrentContext(uri)
 				  end)
 			end
-
-		end)  		
-			
-			
-			  		
-	end
-  
+		end)  						
+	end  
   end
 
 function obj:bindHotkeys(keys)

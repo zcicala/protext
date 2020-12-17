@@ -36,7 +36,7 @@ You can navigate between contexts in a few differentt ways. The name of the cont
 Protext adds an entry to the Mac menubar. The text of the menu will be the current context.
 Each recent context (up to 10) will have an entry in this menu. 
 1. `Open All` will open every URI for this context
-1. `Delete` will remove the context from the recent context list and fromm the menu.
+1. `Remove` will remove the context from the recent context list and fromm the menu.
 1. All other entries are invidual URIs that will open when clicked
 
 ## How to Install
