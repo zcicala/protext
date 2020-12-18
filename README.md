@@ -64,3 +64,10 @@ spoon.protext:bindHotkeys({
 spoon.protext:start()
 
 ```
+
+## Future Features
+1. Use Selected Text for context when create new context
+1. Support Omnifocus?
+1. Support Firefox?
+1. Support item2?
+1. Better management of state history

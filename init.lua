@@ -2,6 +2,7 @@
 local obj = {}
 obj.__index = obj
 
+
 -- Metadata
 obj.name = 'Protext'
 obj.version = '0.1'
@@ -12,21 +13,24 @@ obj.protextMenu = nil
 
 
 obj.maxRecentEntries=10
-
+obj.enableUI = true
+obj.enableStateWrite = true
 obj.stateFile = "~/.hammerspoon/protextState.json"
 obj.state = {
-	currentContextPosition = 1,
-	recentSize = 1,
-	currentContext = "default",
-	contextData = {default = {}},
-	urlToContext = {},
-	recentContexts = {"default"},
 }
 
 function obj:init(  )
 end
 
 function obj:start()
+	self.state = {
+		currentContextPosition = 1,
+		recentSize = 1,
+		currentContext = "default",
+		contextData = {default = {}},
+		urlToContext = {},
+		recentContexts = {"default"},
+	}
 	self.protextMenu = hs.menubar.new()
 	self:readState(self.stateFile)
 	self:switchContext(self.state.currentContext)
@@ -97,7 +101,9 @@ function obj:readState(file)
 end
 
 function obj:writeState(file) 
-	hs.json.write(self.state, file, true, true)
+	if self.enableStateWrite then
+		hs.json.write(self.state, file, true, true)
+	end
 end
 
 function obj:addToCurrentContext(url)
@@ -106,7 +112,7 @@ function obj:addToCurrentContext(url)
  	table.insert(self.state.contextData[currentContext], url)
  	self.state.urlToContext[url] = currentContext
  	
-	hs.notify.show("Add to context",currentContext, url)
+	if self.updateUI then hs.notify.show("Add to context",currentContext, url) end
 	self:addRecentContext(currentContext) 
  	self:writeState(self.stateFile)
 	self:updateUI()
@@ -132,6 +138,7 @@ function obj:addRecentContext(context)
 	end
 
 	-- This is basically an LRU Cache, which I don't feel like implementing
+	
 	-- Remove this context if its already in the list
 	local indexToRemove = -1
 	for index, val in pairs(self.state.recentContexts) do
@@ -140,6 +147,7 @@ function obj:addRecentContext(context)
 			break
 		end
 	end
+
 
 	if indexToRemove > -1 then
 		table.remove(self.state.recentContexts, indexToRemove)
@@ -152,35 +160,42 @@ function obj:addRecentContext(context)
 	-- if the table is too big then lets remove the first element
 	if self.state.recentSize > self.maxRecentEntries then
 		table.remove(self.state.recentContexts, 1)
+		self.state.recentSize = self.state.recentSize - 1
 	end
 
-	--Position of currentContext has shifted
+	--Position of currentContext has shifted	
 	self.state.currentContextPosition = self.state.recentSize
 	self:updateUI()
 end
 
 function obj:removeFromRecent(indexToRemove)
-
-	print("indexToRemove", indexToRemove)
 	if indexToRemove > -1 then
 		table.remove(self.state.recentContexts, indexToRemove)
-		self.state.recentSize = self.state.recentSize -1
+		self.state.recentSize = self.state.recentSize - 1
 		
-		if self.state.currentContextPosition > indexToRemove then
+		--print(hs.inspect(self.state))
+		-- if we're trying to remove the currennt context then mmove to the next most recent context
+		if self.state.currentContextPosition == indexToRemove then
 			self.state.currentContextPosition = self.state.currentContextPosition - 1
+			local newContext = self.state.recentContexts[self.state.currentContextPosition]	
+			
+			self:switchContext(newContext)
+		elseif self.state.currentContextPosition > indexToRemove then
+			self.state.currentContextPosition = self.state.currentContextPosition - 1
+			self:writeState(self.stateFile)
 		end
 	end
 
-	-- if we're trying to remove the currennt context then mmove to the most recent context
-	if self.state.currentContext == contextToRemove then
-		self.switchContext(self.state.recentContexts[1])
-	end
-
-	
 	self:updateUI()
-end
+end	
 
 function obj:updateUI()
+
+	--add a flag for not updating the UI for testing
+	if self.enableUI == false then
+		return
+	end
+
 	--Update menubar
 	local menudata = {}	
 	--Reverse iterate
@@ -211,7 +226,7 @@ function obj:switchContext(newContext)
 	self.state.currentContext = newContext
 	self:writeState(self.stateFile)
 
-	self.protextMenu:setTitle(string.sub(newContext,1,16));
+	if self.enableUI then self.protextMenu:setTitle(string.sub(newContext,1,16)) end
 end
 
 
@@ -420,5 +435,94 @@ function obj:dump(o, prefix)
    end
 
 end
+
+function obj:runTests()
+	self.enableStateWrite = false
+	self.enableUI = false
+	for testName,test in pairs(self.tests) do
+		print("Running ", testName)
+		test(self)
+	end
+	self.enableStateWrite = true
+	self.enableUI = true
+
+end
+
+obj.tests = {
+	testRecentReorder = function(self)
+		self.state = {
+			currentContextPosition = 4,
+			recentSize = 4,
+			currentContext = "four",
+			contextData = {one = {}, two = {}, three = {}, four = {}, },
+			urlToContext = {},
+			recentContexts = {"one", "two", "three", "four"},
+		}
+		
+		self:addRecentContext("four")
+		assert(self.state.recentSize == 4 , "Adding an existing context in the right position shouldn't change anything")
+		assert(self.state.currentContextPosition == 4 , "Adding an existing context in the right position shouldn't change anything")
+		assert(self.state.recentContexts[1] == "one" and  self.state.recentContexts[4] == "four", "Adding an existing context in the right position shouldn't change anything")
+
+		self:addRecentContext("five")
+		assert(self.state.recentSize == 5 , "Adding a new element should increment recent size list")
+		assert(self.state.recentContexts[1] == "one", "Adding a new recent context shouldn't change the begining of the list")
+		assert(self.state.recentContexts[5] == "five", "Adding a new recent context should add a new element to the end")
+
+
+		self:addRecentContext("one")
+		assert(self.state.recentSize == 5 , "Size should be the same")
+		assert(self.state.recentContexts[1] == "two", "'two' should be elementt #1")
+		assert(self.state.recentContexts[2] == "three", "'three' should be elementt #2")
+		assert(self.state.recentContexts[3] == "four", "'four' should be elementt #3")
+		assert(self.state.recentContexts[4] == "five", "'five' should be elementt #4")
+		assert(self.state.recentContexts[5] == "one", "'one' should be elementt #5")
+	end,
+	testtRecentListEvict = function(self)
+		self.state = {
+			currentContextPosition = 9,
+			recentSize = 9,
+			currentContext = "nine",
+			contextData = {one = {}, two = {}, three = {}, four = {}, five = {}, six = {}, seven = {}, eight = {}, nine = {}, },
+			urlToContext = {},
+			recentContexts = {"one", "two", "three", "four", "five", "six", "seven", "eight", "nine"},
+		}
+		
+		self:addRecentContext("ten")
+		assert(self.state.recentSize == 10 , "After adding an item to a list of length nine the list should be a length of ten")
+		assert(self.state.recentContexts[1] == "one", "First element should be 'one'")
+		
+		self:addRecentContext("eleven")		
+		assert(self.state.recentSize == 10 , "After adding an item to a list of length ten the list should sttill be a length of ten")
+		assert(self.state.recentContexts[1] == "two", "First element should be 'two' after an evictions")
+	end,
+	testtRemovingElement= function(self)
+		self.state = {
+			currentContextPosition = 9,
+			recentSize = 9,
+			currentContext = "nine",
+			contextData = {one = {}, two = {}, three = {}, four = {}, five = {}, six = {}, seven = {}, eight = {}, nine = {}, },
+			urlToContext = {},
+			recentContexts = {"one", "two", "three", "four", "five", "six", "seven", "eight", "nine"},
+		}
+		
+		self:removeFromRecent(5)
+		assert(self.state.recentSize == 8 , "After removing an item to a list of length nine the list should be a length of 8")
+		assert(self.state.recentContexts[1] == "one", "First element should be 'one'")
+		assert(self.state.recentContexts[8] == "nine", "Eight element should be 'nine'")
+		assert(self.state.currentContextPosition == 8 , "After removing an item from a list the currentContextPosition should shift down ")
+		
+		self:removeFromRecent(8)	
+		assert(self.state.recentSize == 7 , "After adding an item to a list of length ten the list should sttill be a length of ten")
+		assert(self.state.recentContexts[1] == "one", "First element should remain 'one' ")
+		assert(self.state.recentContexts[7] == "eight", " The last element should be eight since nine was removed")
+		assert(self.state.currentContextPosition == 7 , "After removing an item from a list the currentContextPosition should shift down")
+		assert(self.state.currentContext == "eight" , "After removing an item from a list the currentContextPosition should shift down and currentContext updated")
+	end
+}
+
+
+
+
 
 return obj
